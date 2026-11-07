@@ -1014,7 +1014,7 @@
         <!-- ======================================== on top ======================================== -->
         <Canvas>
             <!-- the update window, from the emblem -->
-            <Border x:Name="UpdateSheet" Canvas.Left="334" Canvas.Top="196" Width="420" CornerRadius="18" Padding="22,18,22,16"
+            <Border x:Name="UpdateSheet" Canvas.Left="234" Canvas.Top="186" Width="620" CornerRadius="18" Padding="22,18,22,16"
 			        Background="#F7121215" BorderBrush="#80FF5A5A" BorderThickness="1" Visibility="Collapsed">
                 <Border.Effect>
                     <DropShadowEffect Color="Black" ShadowDepth="8" BlurRadius="40" Opacity="0.75" />
@@ -1024,14 +1024,8 @@
 					           Effect="{StaticResource SoftGoldGlow}" />
                     <TextBlock FontFamily="{StaticResource UiFont}" FontSize="13" Foreground="#B9B9BE" Margin="0,3,0,9" Text="Get it from ModDB or Nexus Mods" />
                     <StackPanel x:Name="SheetLines" Margin="0,0,0,10" />
-                    <TextBlock FontFamily="{StaticResource UiFont}" FontSize="12.5" Foreground="#E8D8B5" TextWrapping="Wrap" Margin="0,0,0,12"
-					           Text="Install it as the page explains. The next time the launcher opens, it checks the new files for you." />
-                    <WrapPanel>
-                        <Button Style="{StaticResource PrimaryButton}" Content="Get it from ModDB" Margin="0,0,8,8" Click="SheetModDB_Click" />
-                        <Button Style="{StaticResource PrimaryButton}" Content="Get it from Nexus Mods" Margin="0,0,8,8" Click="SheetNexus_Click" />
-                    </WrapPanel>
                     <DockPanel>
-                        <Button Style="{StaticResource QuietButton}" DockPanel.Dock="Right" Content="Not now" Click="SheetLater_Click" />
+                        <Button Style="{StaticResource QuietButton}" DockPanel.Dock="Right" Content="Close" Click="SheetLater_Click" />
                         <Button x:Name="SheetNews" Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Content="What's new" Click="SheetNews_Click" />
                     </DockPanel>
                 </StackPanel>

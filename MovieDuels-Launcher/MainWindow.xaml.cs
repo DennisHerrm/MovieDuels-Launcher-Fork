@@ -519,7 +519,7 @@ namespace MovieDuelsLauncher
             {
                 return;
             }
-            SheetTitle.Text = latest.Title + " is out";
+            SheetTitle.Text = latest.Title.ToUpper() + " IS OUT!";
             SheetLines.Children.Clear();
             foreach (string line in latest.WhatsNew.Take(6))
             {

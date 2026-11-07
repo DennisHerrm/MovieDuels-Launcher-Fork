@@ -33,7 +33,7 @@ namespace MovieDuelsLauncher
 
         public static string YouTubePicture(string id)
         {
-            return "https://img.youtube.com/vi/" + id + "/hqdefault.jpg";
+            return "https://img.youtube.com/vi/" + id + "/maxresdefault.jpg";
         }
 
         public sealed class Styles
