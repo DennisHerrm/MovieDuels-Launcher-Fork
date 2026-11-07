@@ -6,8 +6,11 @@ using System.Linq;
 
 namespace MovieDuelsLauncher
 {
-    // A quick look at the installation, run after a new update was installed and from SETTINGS > Check installation.
+    // A look at the installation, run after a new update was installed and from SETTINGS > Check installation.
     // It does not change anything:
+    //
+    //   - every game file of the list (Assets/Text/GameFiles.txt) is in the MD folder; this part also runs each time
+    //     the launcher opens, for the warning on PLAY
     //
     //   - Jedi Academy: base\assets0.pk3 .. assets3.pk3 next to the MD folder
     //   - Movie Duels: every pk3 of the MD folder opens as a zip (its file list can be read), so a broken or
@@ -66,11 +69,52 @@ namespace MovieDuelsLauncher
             return missing;
         }
 
+        // the pk3 files a complete install has in MD (Assets/Text/GameFiles.txt, set by the window)
+        public static string[] GameFiles = new string[0];
+
+        // the game files that are not in the MD folder (a quick look: only whether each file is there)
+        public static List<string> MissingGameFiles(string folder)
+        {
+            var missing = new List<string>();
+            foreach (string file in GameFiles)
+            {
+                try
+                {
+                    if (!File.Exists(Path.Combine(folder, ModFolder, file)))
+                    {
+                        missing.Add(file);
+                    }
+                }
+                catch (Exception)
+                {
+                    missing.Add(file);
+                }
+            }
+            return missing;
+        }
+
+        // GameFiles.txt: a name per line, "# " lines are notes; ".pk3" may be left out
+        public static string[] ParseGameFiles(string text)
+        {
+            var names = new List<string>();
+            foreach (string raw in (text ?? "").Replace("\r\n", "\n").Split('\n'))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                names.Add(line.EndsWith(".pk3", StringComparison.OrdinalIgnoreCase) ? line : line + ".pk3");
+            }
+            return names.ToArray();
+        }
+
         public sealed class Result
         {
             public bool JediAcademy;
             public int Pk3Count;
-            public List<string> Broken = new List<string>();
+            public List<string> Missing = new List<string>(); // game files that are not there
+            public List<string> Broken = new List<string>();  // pk3s that can't be read
         }
 
         public static bool HasJediAcademy(string folder)
@@ -103,7 +147,7 @@ namespace MovieDuelsLauncher
         // progress(done, total, file name); called off the UI thread
         public static Result Run(string folder, Action<int, int, string> progress)
         {
-            var result = new Result { JediAcademy = HasJediAcademy(folder) };
+            var result = new Result { JediAcademy = HasJediAcademy(folder), Missing = MissingGameFiles(folder) };
             string[] files = Pk3Files(folder);
             result.Pk3Count = files.Length;
             for (int i = 0; i < files.Length; i++)

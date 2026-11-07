@@ -96,6 +96,7 @@
     <!-- the ABOUT page's texts: edit them like any text file and rebuild -->
     <Resource Include="Assets\Text\About.txt" />
     <Resource Include="Assets\Text\FAQ.txt" />
+    <Resource Include="Assets\Text\GameFiles.txt" />
     <Resource Include="Assets\Text\Team.txt" />
   </ItemGroup>
   <!-- Not used any more (the old OPTIONS card and its gear): kept with the project, not built into the exe. -->

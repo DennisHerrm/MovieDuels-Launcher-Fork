@@ -833,7 +833,7 @@
                                 </Border>
                             </Grid>
                             <TextBlock x:Name="CheckText" FontFamily="{StaticResource UiFont}" FontSize="12" Foreground="#C4C4C8" Margin="0,5,0,0"
-							           TextTrimming="CharacterEllipsis" />
+							           TextWrapping="Wrap" MaxHeight="34" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Button x:Name="CheckButton" Style="{StaticResource GhostButton}" Height="30" Padding="13,0" Content="Check installation" Click="CheckInstallation_Click" />

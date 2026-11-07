@@ -78,13 +78,14 @@ namespace MovieDuelsLauncher
 
         private enum Page { Play, News, Article, About, Settings, Multiplayer }
 
-        private enum EmblemState { Idle, Checking, Available, Verify, Ready }
+        private enum EmblemState { Idle, Checking, Available, Verify, Ready, Warning }
 
         private Page page = Page.Play;
         private EmblemState emblem = EmblemState.Idle;
         private Online.Latest latest;        // what latest.json says, or null
         private bool checkingFiles;          // the bars are running
         private FilesCheck.Result lastCheck; // the last installation check, for SETTINGS
+        private List<string> missingFiles = new List<string>(); // game files not in MD: the emblem warns on PLAY
 
         public MainWindow()
         {
@@ -104,6 +105,7 @@ namespace MovieDuelsLauncher
             ShowOptions();
             ShowMusicButton();
             BuildAbout();
+            FilesCheck.GameFiles = FilesCheck.ParseGameFiles(ReadResourceText("Assets/Text/GameFiles.txt"));
             ShowInstallation();
             ShowUpdate();
             SetPage(Page.Play, true);
@@ -393,20 +395,28 @@ namespace MovieDuelsLauncher
         // the emblem, the reminder above it, the corner text and the dot on PLAY, from the update state
         private void ShowUpdate()
         {
+            bool missing = missingFiles.Count > 0 && !checkingFiles;
             if (emblem != EmblemState.Checking && emblem != EmblemState.Ready)
             {
-                SetEmblem(checkingFiles ? EmblemState.Verify : UpdateAvailable ? EmblemState.Available : EmblemState.Idle);
+                SetEmblem(checkingFiles ? EmblemState.Verify : missing ? EmblemState.Warning : UpdateAvailable ? EmblemState.Available : EmblemState.Idle);
             }
             bool available = UpdateAvailable;
             VersionText.Inlines.Clear();
             VersionText.Inlines.Add(new Run("Update " + mdUpdate));
-            if (available)
+            if (missing)
+            {
+                VersionText.Inlines.Add(new Run("  \u00b7  "));
+                VersionText.Inlines.Add(new Run(MissingText()) { Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0x28)), FontWeight = FontWeights.SemiBold });
+            }
+            else if (available)
             {
                 VersionText.Inlines.Add(new Run("  ·  "));
                 VersionText.Inlines.Add(new Run(latest.Title + " available") { Foreground = (Brush)FindResource("GoldBright"), FontWeight = FontWeights.SemiBold });
             }
-            ChipText.Text = available ? latest.Title + " is out! Click to see what's new." : "";
-            Chip.Visibility = available && !chipDismissed && page == Page.Play && UpdateSheet.Visibility != Visibility.Visible
+            // the reminder above the emblem: missing files (amber, always) or a new update (red, until its window was opened)
+            ChipText.Text = missing ? MissingText() + ". Click to see which." : available ? latest.Title + " is out! Click to see what's new." : "";
+            Chip.Background = missing ? AmberChip : RedChip;
+            Chip.Visibility = (missing || (available && !chipDismissed)) && page == Page.Play && UpdateSheet.Visibility != Visibility.Visible
                 ? Visibility.Visible : Visibility.Collapsed;
             NavPlay.Uid = available && page != Page.Play && page != Page.Multiplayer ? "dot" : "";
             NavPlay.ToolTip = NavPlay.Uid == "dot" ? latest.Title + " is out!" : null;
@@ -420,10 +430,26 @@ namespace MovieDuelsLauncher
 
         private bool chipDismissed;
 
+        private static readonly Brush RedChip = ChipBrush(Color.FromRgb(0xD6, 0x22, 0x2B), Color.FromRgb(0x96, 0x11, 0x1A));
+        private static readonly Brush AmberChip = ChipBrush(Color.FromRgb(0xE0, 0x8A, 0x1A), Color.FromRgb(0x9C, 0x55, 0x08));
+
+        private static Brush ChipBrush(Color top, Color bottom)
+        {
+            var brush = new LinearGradientBrush(top, bottom, 90);
+            brush.Freeze();
+            return brush;
+        }
+
+        private string MissingText()
+        {
+            return missingFiles.Count + (missingFiles.Count == 1 ? " game file is missing" : " game files are missing");
+        }
+
         private void SetEmblem(EmblemState state)
         {
             emblem = state;
-            bool red = state == EmblemState.Available;
+            bool warning = state == EmblemState.Warning;
+            bool red = state == EmblemState.Available || warning;
             bool teal = state == EmblemState.Verify || state == EmblemState.Ready;
             Fade(RedEmblem, red, TimeSpan.FromMilliseconds(350));
             Fade(TealEmblem, teal, TimeSpan.FromMilliseconds(350));
@@ -432,26 +458,29 @@ namespace MovieDuelsLauncher
             ArcTurn.BeginAnimation(RotateTransform.AngleProperty, state == EmblemState.Checking
                 ? new DoubleAnimation(0, 360, TimeSpan.FromSeconds(1)) { RepeatBehavior = RepeatBehavior.Forever } : null);
 
-            // red: a slow pulse and two ripples; ready: three quick teal pulses
-            PulseColor.Color = red ? Color.FromArgb(0xD9, 0xFF, 0x28, 0x32) : Color.FromArgb(0xD9, 0x32, 0xF0, 0xD2);
+            // update: a slow red pulse and two ripples; missing files: an amber pulse; ready: three quick teal pulses
+            PulseColor.Color = warning ? Color.FromArgb(0xE6, 0xFF, 0xAA, 0x28) : red ? Color.FromArgb(0xD9, 0xFF, 0x28, 0x32) : Color.FromArgb(0xD9, 0x32, 0xF0, 0xD2);
             if (red)
             {
                 EmblemPulse.BeginAnimation(OpacityProperty, new DoubleAnimation(0.2, 1, TimeSpan.FromSeconds(0.9))
                     { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase() });
-                Ripple(Ripple1, 0);
-                Ripple(Ripple2, 0.9);
+                if (!warning)
+                {
+                    Ripple(Ripple1, 0);
+                    Ripple(Ripple2, 0.9);
+                }
             }
             else if (state == EmblemState.Ready)
             {
                 EmblemPulse.BeginAnimation(OpacityProperty, new DoubleAnimation(0.2, 1, TimeSpan.FromSeconds(0.6))
                     { AutoReverse = true, RepeatBehavior = new RepeatBehavior(3), EasingFunction = new SineEase() });
             }
-            if (!red)
+            if (!red || warning)
             {
                 Ripple1.BeginAnimation(OpacityProperty, null);
                 Ripple2.BeginAnimation(OpacityProperty, null);
                 Ripple1.Opacity = Ripple2.Opacity = 0;
-                if (state != EmblemState.Ready)
+                if (state != EmblemState.Ready && !warning)
                 {
                     EmblemPulse.BeginAnimation(OpacityProperty, null);
                     EmblemPulse.Opacity = 0;
@@ -464,6 +493,7 @@ namespace MovieDuelsLauncher
                 case EmblemState.Available: Emblem.ToolTip = null; break; // the reminder says it
                 case EmblemState.Verify: Emblem.ToolTip = "Checking the new files..."; break;
                 case EmblemState.Ready: Emblem.ToolTip = "Ready!"; break;
+                case EmblemState.Warning: Emblem.ToolTip = MissingText() + ". Click to see which."; break;
                 default:
                     Emblem.ToolTip = settings.CheckUpdates ? "Update " + mdUpdate + ": you're up to date. Click to check again." : "Click to check for updates";
                     break;
@@ -494,7 +524,11 @@ namespace MovieDuelsLauncher
         private void Emblem_Click(object sender, MouseButtonEventArgs e)
         {
             e.Handled = true; // not a window drag
-            if (emblem == EmblemState.Available)
+            if (emblem == EmblemState.Warning)
+            {
+                SetPage(Page.Settings); // the list of what is missing
+            }
+            else if (emblem == EmblemState.Available)
             {
                 PlaySfx(clickSound);
                 if (UpdateSheet.Visibility == Visibility.Visible)
@@ -678,11 +712,12 @@ namespace MovieDuelsLauncher
             bool unlocked = HasMultiplayer && settings.LastUpdate < 9;
             settings.LastUpdate = mdUpdate;
             settings.Save();
-            int broken = lastCheck.Broken.Count;
+            missingFiles = lastCheck.Missing;
+            int broken = lastCheck.Broken.Count + lastCheck.Missing.Count;
 
             StatusLeft.Inlines.Clear();
             StatusLeft.Inlines.Add(new Run(broken == 0 ? "UPDATE " + mdUpdate + " IS READY" : broken + (broken == 1 ? " FILE" : " FILES") + " TO LOOK AT") { FontWeight = FontWeights.Bold });
-            StatusRight.Text = broken == 0 ? "All files checked" : "See Settings";
+            StatusRight.Text = broken == 0 ? "All files checked" : lastCheck.Missing.Count > 0 ? MissingText() + ". See Settings" : "See Settings";
             if (broken > 0)
             {
                 SetBladeColor(Color.FromRgb(0x55, 0x55, 0x5A), Colors.Transparent);
@@ -719,7 +754,8 @@ namespace MovieDuelsLauncher
                 {
                     mode.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(550)));
                 }
-                ShowToast(broken > 0 ? broken + " of the new files could not be read. Settings shows which."
+                ShowToast(lastCheck.Missing.Count > 0 ? MissingText() + ". Settings shows which."
+                    : broken > 0 ? broken + " of the new files could not be read. Settings shows which."
                     : unlocked ? "Update " + mdUpdate + " is ready. Multiplayer is now available!" : "Update " + mdUpdate + " is ready. Have fun!");
             });
         }
@@ -800,6 +836,8 @@ namespace MovieDuelsLauncher
         private Button NewsCard(Online.Article article, bool fresh)
         {
             var grid = new Grid { ClipToBounds = true };
+            // inside the card's rounded edge (corner 12 minus the 2 px edge), so the picture's top corners are round too
+            grid.SizeChanged += (s, e) => grid.Clip = new RectangleGeometry(new Rect(e.NewSize), 10, 10);
             grid.Children.Add(new Image { Height = 318, VerticalAlignment = VerticalAlignment.Top, Stretch = Stretch.UniformToFill });
             var fade = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
             fade.GradientStops.Add(new GradientStop(Color.FromArgb(0, 0x0B, 0x0B, 0x0D), 0));
@@ -1680,6 +1718,7 @@ namespace MovieDuelsLauncher
             InstallRows.Children.Clear();
             bool jka = FilesCheck.HasJediAcademy(folder);
             int pk3 = FilesCheck.Pk3Files(folder).Length;
+            missingFiles = FilesCheck.MissingGameFiles(folder);
             AddInstallRow(jka ? "ok" : "bad", "Jedi Academy", jka ? "Found: base\\assets0-3.pk3" : "Not found next to the MD folder");
             string mod;
             string state;
@@ -1687,6 +1726,11 @@ namespace MovieDuelsLauncher
             {
                 state = "bad";
                 mod = "No pk3 files in the MD folder";
+            }
+            else if (missingFiles.Count > 0)
+            {
+                state = "bad";
+                mod = MissingText() + ": " + string.Join(", ", missingFiles);
             }
             else if (lastCheck != null && lastCheck.Broken.Count > 0)
             {
@@ -1696,7 +1740,7 @@ namespace MovieDuelsLauncher
             else
             {
                 state = "ok";
-                mod = "Update " + mdUpdate + " · " + pk3 + " pk3 files" + (lastCheck != null ? ", all can be read" : "");
+                mod = "Update " + mdUpdate + " \u00b7 all " + FilesCheck.GameFiles.Length + " game files found" + (lastCheck != null ? " and readable" : "");
             }
             AddInstallRow(state, "Movie Duels", mod);
 
@@ -1783,10 +1827,14 @@ namespace MovieDuelsLauncher
             CheckBar.Width = width;
             int broken = result.Broken.Count;
             CheckText.Text = !result.JediAcademy ? "Jedi Academy was not found next to the MD folder."
-                : broken == 0 ? "All " + result.Pk3Count + " files can be read."
-                : broken + (broken == 1 ? " file" : " files") + " can't be read. Get them again from ModDB.";
+                : result.Missing.Count > 0 ? result.Missing.Count + (result.Missing.Count == 1 ? " game file is" : " game files are") + " missing: "
+                    + string.Join(", ", result.Missing) + ". Install the update again from ModDB."
+                : broken > 0 ? broken + (broken == 1 ? " file" : " files") + " can't be read. Get them again from ModDB."
+                : "Everything is installed: all " + FilesCheck.GameFiles.Length + " game files found and readable.";
+            CheckText.ToolTip = CheckText.Text;
             PlaySfx(clickSound);
             ShowInstallation();
+            ShowUpdate();
             CheckButton.IsEnabled = true;
         }
 
