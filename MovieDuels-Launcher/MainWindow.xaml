@@ -20,7 +20,6 @@
         Width="1088" Height="612"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen"
-        Icon="Assets/MovieDuels-Launcher.ico"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         RenderOptions.BitmapScalingMode="HighQuality"
         TextOptions.TextRenderingMode="Grayscale"
@@ -951,7 +950,7 @@
             <!-- the emblem: red when a new update is out (click: what's new and where to get it), teal when a new update was
 			     checked; a gold ring turns while the launcher looks for an update -->
             <Grid x:Name="Emblem" Canvas.Left="504" Canvas.Top="518" Width="80" Height="80" Cursor="Hand" Background="Transparent"
-			      MouseLeftButtonUp="Emblem_Click" MouseEnter="Emblem_MouseEnter" ToolTipService.InitialShowDelay="300">
+			      MouseLeftButtonDown="Emblem_MouseDown" MouseLeftButtonUp="Emblem_Click" MouseEnter="Emblem_MouseEnter" ToolTipService.InitialShowDelay="300">
                 <Ellipse x:Name="EmblemPulse" Margin="-4" Opacity="0" IsHitTestVisible="False">
                     <Ellipse.Fill>
                         <RadialGradientBrush>
@@ -988,7 +987,7 @@
             <!-- the reminder above the emblem -->
             <Grid Canvas.Top="484" Width="1088">
                 <Border x:Name="Chip" HorizontalAlignment="Center" Height="28" CornerRadius="14" Padding="14,0" Cursor="Hand" Visibility="Collapsed"
-			        BorderBrush="#4DFFFFFF" BorderThickness="1" MouseLeftButtonUp="Emblem_Click">
+			        BorderBrush="#4DFFFFFF" BorderThickness="1" MouseLeftButtonDown="Emblem_MouseDown" MouseLeftButtonUp="Emblem_Click">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                             <GradientStop Color="#D6222B" Offset="0" />

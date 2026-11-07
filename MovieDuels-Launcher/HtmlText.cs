@@ -13,11 +13,28 @@ namespace MovieDuelsLauncher
     // nothing in it can run: <h2> <h3> <p> <p class="note"> <ul>/<ol> <li> <b>/<strong> <i>/<em> <a href> <br>
     // <img src>. Other tags are skipped (their text stays), <script> and <style> are dropped with their content.
     // Links open in the browser; pictures come from the news repository like the article.
+    //
+    // A YouTube <iframe> (the embed code YouTube's Share button gives) shows as the video's picture with a play
+    // button; a click opens the video in the browser. Playing it inside the launcher would need a browser engine
+    // (WebView2). Other iframes become a link to their page.
     public static class HtmlText
     {
         private static readonly Regex Token = new Regex(@"<!--.*?-->|<(/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>|([^<]+)", RegexOptions.Singleline);
         private static readonly Regex Attr = new Regex(@"([a-zA-Z-]+)\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s>]+))");
         private static readonly Regex Space = new Regex(@"\s+");
+        private static readonly Regex YouTube = new Regex(@"^https://(?:www\.|m\.)?(?:youtube(?:-nocookie)?\.com/(?:embed/|watch\?v=|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})", RegexOptions.IgnoreCase);
+
+        // the id of a YouTube video address, or null
+        public static string YouTubeId(string src)
+        {
+            Match m = YouTube.Match(src ?? "");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        public static string YouTubePicture(string id)
+        {
+            return "https://img.youtube.com/vi/" + id + "/hqdefault.jpg";
+        }
 
         public sealed class Styles
         {
@@ -30,22 +47,68 @@ namespace MovieDuelsLauncher
             public Brush NoteBorder;
         }
 
-        // the <img src> of an article, so they can be loaded before it is shown
+        // the pictures of an article (<img src>, and the picture of each YouTube video), so they can be loaded before it is shown
         public static List<string> Images(string html)
         {
             var list = new List<string>();
             foreach (Match m in Token.Matches(html ?? ""))
             {
-                if (m.Groups[2].Value.Equals("img", StringComparison.OrdinalIgnoreCase) && m.Groups[1].Value.Length == 0)
+                if (m.Groups[1].Value.Length > 0)
                 {
-                    string src = Attribute(m.Groups[3].Value, "src");
-                    if (src != null)
-                    {
-                        list.Add(src);
-                    }
+                    continue;
+                }
+                string tag = m.Groups[2].Value.ToLowerInvariant();
+                string src = Attribute(m.Groups[3].Value, "src");
+                if (tag == "img" && src != null)
+                {
+                    list.Add(src);
+                }
+                else if (tag == "iframe" && YouTubeId(src) != null)
+                {
+                    list.Add(YouTubePicture(YouTubeId(src)));
                 }
             }
             return list;
+        }
+
+        // a video: its picture at the size the iframe asks for (16:9, at most 640 wide), a play button, "Watch on YouTube"
+        private static Block Video(string id, int width, ImageSource picture, Action<string> openLink)
+        {
+            width = Math.Max(240, Math.Min(640, width));
+            var frame = new Grid { Width = width, Height = Math.Round(width * 9.0 / 16), HorizontalAlignment = HorizontalAlignment.Left, Cursor = System.Windows.Input.Cursors.Hand, ClipToBounds = true };
+            frame.Clip = new RectangleGeometry(new Rect(0, 0, frame.Width, frame.Height), 10, 10);
+            frame.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(0x10, 0x10, 0x12)) });
+            if (picture != null)
+            {
+                frame.Children.Add(new Image { Source = picture, Stretch = Stretch.UniformToFill });
+            }
+            var shade = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+            shade.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0, 0, 0), 0.55));
+            shade.GradientStops.Add(new GradientStop(Color.FromArgb(0xB0, 0, 0, 0), 1));
+            frame.Children.Add(new Border { Background = shade });
+            var play = new Border
+            {
+                Width = 68, Height = 48, CornerRadius = new CornerRadius(12), Background = new SolidColorBrush(Color.FromArgb(0xE6, 0x21, 0x21, 0x21)),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Child = new System.Windows.Shapes.Path { Data = Geometry.Parse("M0,0 L18,11 L0,22 Z"), Fill = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) }
+            };
+            frame.Children.Add(play);
+            frame.Children.Add(new TextBlock
+            {
+                Text = "Watch on YouTube \u2197", Foreground = Brushes.White, FontSize = 13, FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(14, 0, 0, 11)
+            });
+            var red = new SolidColorBrush(Color.FromRgb(0xFF, 0x00, 0x00));
+            frame.MouseEnter += (s, e) => play.Background = red;
+            frame.MouseLeave += (s, e) => play.Background = new SolidColorBrush(Color.FromArgb(0xE6, 0x21, 0x21, 0x21));
+            frame.MouseLeftButtonDown += (s, e) => e.Handled = true; // a click, not a window drag
+            frame.MouseLeftButtonUp += (s, e) =>
+            {
+                e.Handled = true;
+                openLink("https://www.youtube.com/watch?v=" + id);
+            };
+            frame.ToolTip = "https://www.youtube.com/watch?v=" + id;
+            return new BlockUIContainer(frame) { Margin = new Thickness(0, 4, 0, 14) };
         }
 
         public static void AppendTo(FlowDocument doc, string html, Styles styles, Func<string, ImageSource> image, Action<string> openLink)
@@ -238,6 +301,27 @@ namespace MovieDuelsLauncher
                         }
                         AddInline(span);
                         inlines.Push(span);
+                        break;
+                    case "iframe":
+                        if (!closing)
+                        {
+                            string src = Attribute(attrs, "src");
+                            string id = YouTubeId(src);
+                            int.TryParse(Attribute(attrs, "width"), out int width);
+                            if (id != null)
+                            {
+                                doc.Blocks.Add(Video(id, width > 0 ? width : 480, image(YouTubePicture(id)), openLink));
+                                paragraph = null;
+                            }
+                            else if (src != null && src.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                            {
+                                paragraph = NewParagraph("p");
+                                var link = new Hyperlink(new Run("Open the embedded page \u2197")) { Foreground = styles.LinkBrush, Cursor = System.Windows.Input.Cursors.Hand, ToolTip = src };
+                                link.Click += (s, e) => openLink(src);
+                                paragraph.Inlines.Add(link);
+                                paragraph = null;
+                            }
+                        }
                         break;
                     case "img":
                         if (!closing)

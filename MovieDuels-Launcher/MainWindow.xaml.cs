@@ -485,6 +485,12 @@ namespace MovieDuelsLauncher
             PlaySfx(hoverSound);
         }
 
+        // a press on the emblem (or the reminder) is a click, not the start of a window drag
+        private void Emblem_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+        }
+
         private void Emblem_Click(object sender, MouseButtonEventArgs e)
         {
             e.Handled = true; // not a window drag

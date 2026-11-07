@@ -62,6 +62,9 @@ picture in its `news` folder. The NEWS button flashes while there are articles a
 `Documents\My Games\MovieDuels\LauncherNews`, so the news also show offline; a file read less than 5 minutes
 ago comes from there, so opening the launcher again and again doesn't ask GitHub each time. The news repository's README
 explains the files; the address is `ContentUrl` in `MovieDuels-Launcher\Online.cs`.
+A YouTube embed (`<iframe src="https://www.youtube.com/embed/...">`, from YouTube's Share > Embed) shows as the
+video's picture with a play button and opens the video in the browser; the launcher has no browser engine to play
+it inside.
 
 The launcher's build is shown at the bottom right, from `MovieDuels-Launcher\AutoVersion.cs`
 (like the game's `AutoVersion.h`); change it there for each release.
